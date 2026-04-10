@@ -1,0 +1,19 @@
+{
+  "name": "seo-hub",
+  "version": "1.0.0",
+  "description": "Automatisk SEO-artikelgenerering med mänskligt godkännande",
+  "type": "module",
+  "scripts": {
+    "start:ui": "node ui/server.mjs",
+    "generate": "node generator/run.mjs",
+    "setup": "bash scripts/setup-pytrends.sh"
+  },
+  "keywords": ["seo", "content-generation", "ai", "codex"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "simple-git": "^3.22.0",
+    "marked": "^11.1.1"
+  }
+}

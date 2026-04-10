@@ -1,0 +1,35 @@
+{
+  "sites": [
+    {
+      "id": "autoweb",
+      "niche": "AI-automation, systemintegrationer, utveckling och IT-säkerhet för svenska SMB och startups. Hjälper företag minska manuellt arbete, koppla ihop system och bygga digitala lösningar med praktisk automation, AI-stöd och hands-on utveckling.",
+      "targetRepo": "../auto-web",
+      "contentPath": "content/articles",
+      "seedKeywords": [
+        "chatgpt företag",
+        "microsoft copilot",
+        "ai automation",
+        "power automate",
+        "fortnox",
+        "systemintegrationer",
+        "pipedrive",
+        "business central",
+        "api integrationer",
+        "it säkerhet företag",
+        "ai verktyg",
+        "automation verktyg"
+      ],
+      "schedule": {
+        "day": "monday",
+        "time": "09:00"
+      },
+      "articleLength": {
+        "min": 800,
+        "max": 1500
+      },
+      "targetLanguage": "sv",
+      "revalidateUrl": "https://autoweb.pages.dev/api/revalidate",
+      "revalidateSecret": "env:AUTOWEB_SECRET"
+    }
+  ]
+}
