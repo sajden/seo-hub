@@ -3,21 +3,22 @@
     {
       "id": "autoweb",
       "niche": "AI-automation, systemintegrationer, utveckling och IT-säkerhet för svenska SMB och startups. Hjälper företag minska manuellt arbete, koppla ihop system och bygga digitala lösningar med praktisk automation, AI-stöd och hands-on utveckling.",
-      "targetRepo": "../auto-web",
+      "targetRepo": "/home/sajden/github/sebcastwall",
       "contentPath": "content/articles",
+      "targetSite": "seb-castwall-personal-site",
       "seedKeywords": [
-        "chatgpt företag",
-        "microsoft copilot",
-        "ai automation",
-        "power automate",
-        "fortnox",
-        "systemintegrationer",
-        "pipedrive",
-        "business central",
-        "api integrationer",
-        "it säkerhet företag",
-        "ai verktyg",
-        "automation verktyg"
+        "chatgpt för företag",
+        "ai för företag",
+        "ai mötesanteckningar",
+        "microsoft 365 för företag",
+        "power automate företag",
+        "automatisera dokumentflöden",
+        "fortnox integration",
+        "systemintegration företag",
+        "api integration företag",
+        "ai automation företag",
+        "pipedrive integration",
+        "business central integration"
       ],
       "schedule": {
         "day": "monday",
@@ -28,8 +29,10 @@
         "max": 1500
       },
       "targetLanguage": "sv",
-      "revalidateUrl": "https://autoweb.pages.dev/api/revalidate",
-      "revalidateSecret": "env:AUTOWEB_SECRET"
+      "publishUrl": "https://sebcastwall.se/api/articles/publish",
+      "revalidateUrl": "http://127.0.0.1:3300/api/revalidate",
+      "revalidateSecret": "env:AUTOWEB_SECRET",
+      "pushOnPublish": true
     }
   ]
 }
