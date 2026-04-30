@@ -1,170 +1,179 @@
 #!/usr/bin/env node
 
-import { loadConfig, getSite, getAllSiteIds } from '../lib/config.mjs';
+import { getSite, getAllSiteIds } from '../lib/config.mjs';
 import { readExistingArticles, readExistingDrafts } from '../lib/articles.mjs';
 import { getTrendingTopics, checkPytrends } from './trends.mjs';
 import { filterDuplicates } from './duplicate-check.mjs';
-import { performGapAnalysis, selectBestTopic, selectTopTopics } from './gap-analysis.mjs';
+import { performGapAnalysis, selectBalancedTopics, selectTopTopics } from './gap-analysis.mjs';
 import { generateDraft, saveDraft } from './draft-generator.mjs';
 
 /**
  * Main generator workflow
  * @param {string} siteId - Site to generate for
+ * @returns {Promise<Array<object>>}
  */
-async function generateForSite(siteId) {
-  console.log(`\n=== Generating article for site: ${siteId} ===\n`);
+export async function generateForSite(siteId) {
+  console.log(`
+=== Generating article for site: ${siteId} ===
+`);
 
   try {
-    // 1. Load site config
     const siteConfig = getSite(siteId);
     console.log(`Site: ${siteConfig.id} - ${siteConfig.niche}`);
 
-    // 2. Read existing articles
-    console.log('\nReading existing articles...');
+    console.log(`
+Reading existing articles...`);
     const existingArticles = readExistingArticles(
       siteConfig.targetRepo,
-      siteConfig.contentPath
+      siteConfig.contentPath,
     );
     console.log(`Found ${existingArticles.length} existing articles`);
 
-    // 3. Read existing drafts
-    console.log('\nReading existing drafts...');
+    console.log(`
+Reading existing drafts...`);
     const existingDrafts = readExistingDrafts(siteConfig.id);
     console.log(`Found ${existingDrafts.length} existing drafts`);
 
-    // 4. Get trending topics
-    console.log('\nFetching trending topics...');
+    console.log(`
+Fetching trending topics...`);
     const trendingTopics = await getTrendingTopics(
       siteConfig.seedKeywords,
-      siteConfig.region || 'SE'
+      siteConfig.region || 'SE',
     );
 
     if (trendingTopics.length === 0) {
       console.log('No trending topics found.');
     } else {
       console.log(`Found ${trendingTopics.length} trending topics:`);
-      trendingTopics.slice(0, 5).forEach((t, i) => {
-        console.log(`  ${i + 1}. ${t.topic} (score: ${t.score})`);
+      trendingTopics.slice(0, 5).forEach((topic, index) => {
+        console.log(`  ${index + 1}. ${topic.topic} (score: ${topic.score})`);
       });
     }
 
-    // 5. Filter trending topics (duplicates + relevance)
-    console.log('\nFiltering trending topics (relevance + duplicates)...');
-    let uniqueTrendingTopics = await filterDuplicates(
+    console.log(`
+Filtering trending topics (relevance + duplicates)...`);
+    const uniqueTrendingTopics = await filterDuplicates(
       trendingTopics,
       existingArticles,
       existingDrafts,
-      siteConfig.niche
+      siteConfig.niche,
+      siteConfig.seedKeywords || [],
     );
     console.log(`${uniqueTrendingTopics.length} valid trending topics after filtering`);
 
-    // 6. Always perform gap analysis for diversity
-    console.log('\nPerforming gap analysis...');
+    console.log(`
+Performing gap analysis...`);
     const gapTopics = await performGapAnalysis(existingArticles, siteConfig);
     console.log(`${gapTopics.length} gap topics found`);
 
-    // 7. Mix trending + gap for diversity (1 trending + 1 gap if possible)
     let selectedTopics = [];
+    const balancedTopics = selectBalancedTopics(uniqueTrendingTopics, gapTopics, 2);
 
-    if (uniqueTrendingTopics.length > 0 && gapTopics.length > 0) {
-      // Mix: 1 trending + 1 gap
-      console.log('\nMixing 1 trending + 1 gap topic for diversity');
-      selectedTopics.push(uniqueTrendingTopics[0]); // Top trending
-      selectedTopics.push(gapTopics[0]); // Top gap
+    if (balancedTopics.length >= 2) {
+      console.log(`
+Selecting 1 broad strategic + 1 narrow practical topic when possible`);
+      selectedTopics = balancedTopics;
     } else if (uniqueTrendingTopics.length >= 2) {
-      // Only trending available
-      console.log('\nSelecting 2 trending topics');
+      console.log(`
+Selecting 2 trending topics`);
       selectedTopics = selectTopTopics(uniqueTrendingTopics, 2);
     } else if (gapTopics.length >= 2) {
-      // Only gap available
-      console.log('\nSelecting 2 gap topics');
+      console.log(`
+Selecting 2 gap topics`);
       selectedTopics = selectTopTopics(gapTopics, 2);
     } else if (uniqueTrendingTopics.length === 1 && gapTopics.length === 1) {
-      // 1 of each
-      console.log('\nUsing 1 trending + 1 gap topic');
+      console.log(`
+Using 1 trending + 1 gap topic`);
       selectedTopics = [uniqueTrendingTopics[0], gapTopics[0]];
     } else if (uniqueTrendingTopics.length === 1) {
-      // Only 1 trending
-      console.log('\nUsing 1 trending topic');
+      console.log(`
+Using 1 trending topic`);
       selectedTopics = [uniqueTrendingTopics[0]];
     } else if (gapTopics.length === 1) {
-      // Only 1 gap
-      console.log('\nUsing 1 gap topic');
+      console.log(`
+Using 1 gap topic`);
       selectedTopics = [gapTopics[0]];
     }
+
     if (selectedTopics.length === 0) {
       console.log('No topics selected. Exiting.');
-      return;
+      return [];
     }
 
-    console.log(`\nSelected ${selectedTopics.length} topics for generation:`);
-    selectedTopics.forEach((t, i) => {
-      console.log(`  ${i + 1}. "${t.topic}" (score: ${t.score})`);
+    console.log(`
+Selected ${selectedTopics.length} topics for generation:`);
+    selectedTopics.forEach((topic, index) => {
+      console.log(`  ${index + 1}. "${topic.topic}" (score: ${topic.score}, type: ${topic.topicType || 'unknown'})`);
     });
 
-    // 8. Generate drafts for each selected topic
     const drafts = [];
-    for (let i = 0; i < selectedTopics.length; i++) {
-      const topic = selectedTopics[i];
-      console.log(`\n[${i + 1}/${selectedTopics.length}] Generating draft for "${topic.topic}"...`);
+    for (let index = 0; index < selectedTopics.length; index += 1) {
+      const topic = selectedTopics[index];
+      console.log(`
+[${index + 1}/${selectedTopics.length}] Generating draft for "${topic.topic}"...`);
 
       try {
         const draft = await generateDraft(
           topic,
           siteConfig,
-          topic.reasoning || `Trending topic with score ${topic.score}`
+          topic.reasoning || `Trending topic with score ${topic.score}`,
         );
 
-        // 9. Save draft
         const filepath = saveDraft(draft);
         drafts.push({ draft, filepath });
 
         console.log(`✓ Draft saved: ${draft.title}`);
       } catch (err) {
         console.error(`✗ Failed to generate draft for "${topic.topic}":`, err.message);
-        // Continue with next topic even if this one fails
       }
     }
 
-    // Summary
-    console.log('\n=== Generation complete! ===');
-    console.log(`Generated ${drafts.length} draft(s):\n`);
+    console.log(`
+=== Generation complete! ===`);
+    console.log(`Generated ${drafts.length} draft(s):
+`);
 
-    drafts.forEach(({ draft, filepath }, i) => {
-      console.log(`${i + 1}. ${draft.title}`);
+    drafts.forEach(({ draft, filepath }, index) => {
+      console.log(`${index + 1}. ${draft.title}`);
       console.log(`   Slug: ${draft.slug}`);
       console.log(`   File: ${filepath}`);
-      console.log(`   Review: http://localhost:3001/draft/${draft.siteId}/${draft.slug}\n`);
+      console.log(`   Review: http://localhost:3001/draft/${draft.siteId}/${draft.slug}
+`);
     });
 
+    return drafts.map(({ draft }) => draft);
   } catch (err) {
-    console.error(`\nError generating for site ${siteId}:`, err.message);
+    console.error(`
+Error generating for site ${siteId}:`, err.message);
     throw err;
   }
 }
 
-/**
- * Main entry point
- */
-async function main() {
-  const args = process.argv.slice(2);
+export async function generateSites(siteIds) {
+  const allDrafts = [];
+  for (const siteId of siteIds) {
+    const drafts = await generateForSite(siteId);
+    allDrafts.push(...drafts);
+  }
+  return allDrafts;
+}
 
-  // Check pytrends
+export async function runCli(argv = process.argv.slice(2)) {
   const hasPytrends = await checkPytrends();
   if (!hasPytrends) {
-    console.error('\nPlease install pytrends: npm run setup');
+    console.error(`
+Please install pytrends: npm run setup`);
     process.exit(1);
   }
 
-  // Parse arguments
   let sitesToGenerate = [];
 
-  if (args.includes('--all')) {
+  if (argv.includes('--all')) {
     sitesToGenerate = getAllSiteIds();
   } else {
-    const siteIndex = args.indexOf('--site');
-    if (siteIndex !== -1 && args[siteIndex + 1]) {
-      sitesToGenerate = [args[siteIndex + 1]];
+    const siteIndex = argv.indexOf('--site');
+    if (siteIndex !== -1 && argv[siteIndex + 1]) {
+      sitesToGenerate = [argv[siteIndex + 1]];
     } else {
       console.error('Usage: node generator/run.mjs --site <siteId>');
       console.error('   or: node generator/run.mjs --all');
@@ -173,19 +182,17 @@ async function main() {
   }
 
   console.log('SEO-Hub Generator');
-  console.log('=================\n');
+  console.log(`=================\n`);
 
-  // Generate for each site
-  for (const siteId of sitesToGenerate) {
-    await generateForSite(siteId);
-  }
+  await generateSites(sitesToGenerate);
 
-  console.log('\n=== All done! ===\n');
+  console.log(`
+=== All done! ===
+`);
 }
 
-// Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(err => {
+  runCli().catch((err) => {
     console.error('Fatal error:', err);
     process.exit(1);
   });

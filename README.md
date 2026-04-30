@@ -6,13 +6,15 @@ Automatisk SEO-artikelgenerering med mänskligt godkännande.
 
 SEO-Hub genererar SEO-optimerade artiklar baserat på Google Trends för dina webbplatser. Artiklar granskas manuellt i ett webb-UI innan publicering.
 
-## Status: Fas 1 ✅
+## Status: Fas 2 påbörjad
 
 - [x] Generator (Google Trends → Codex → Draft)
 - [x] Duplicate check (AI semantic matching)
 - [x] Gap analysis (när trends är täckta)
 - [x] Review UI (granska, godkänn, avvisa)
-- [ ] Publisher (Fas 2 - git commit/push)
+- [x] Publisher write path
+- [x] Git commit + push
+- [x] Revalidate webhook
 
 ## Installation
 
@@ -56,12 +58,12 @@ npm run start:ui
 I UI:t kan du:
 - Se alla pending drafts
 - Läsa full artikel
-- Godkänna (status → approved)
+- Godkänna och publicera
 - Avvisa (status → rejected)
 
-### 3. Publicera (Fas 2 - kommande)
+### 3. Publicera
 
-När en artikel godkänns kommer Publisher (Fas 2) att:
+När en artikel godkänns kommer Publisher att:
 - Skriva MDX till target repo
 - Git commit + push
 - Revalidate live site
@@ -78,6 +80,7 @@ Redigera `config.json` för att lägga till sites:
       "niche": "Bilnyheter och elbilstrender i Sverige",
       "targetRepo": "../auto-web",
       "contentPath": "content/articles",
+      "targetSite": "seb-castwall-personal-site",
       "seedKeywords": ["elbilar", "tesla", "laddinfrastruktur"],
       "schedule": { "day": "monday", "time": "09:00" },
       "articleLength": { "min": 800, "max": 1500 },
@@ -94,6 +97,8 @@ Redigera `config.json` för att lägga till sites:
 ```
 Cron → Generator → Trends → Duplicate check → Draft → Review UI → Approve → Publisher (Fas 2)
 ```
+
+Om target-repot innehåller flera sajter bör varje artikel märkas med rätt site i frontmatter via `targetSite`, så att rätt `/artiklar`-sida bara läser sina egna poster.
 
 ### Hur duplicate-check fungerar
 
@@ -112,7 +117,7 @@ Gap analysis triggas automatiskt:
 ## Projektstruktur
 
 ```
-seo-hub/
+article-generator/
 ├── config.json              # Multi-site config
 ├── .local/drafts/           # Generated drafts (gitignored)
 ├── lib/                     # Core libraries
@@ -139,13 +144,11 @@ seo-hub/
 - Codex CLI (installerat)
 - pytrends (installeras via `npm run setup`)
 
-## Nästa steg (Fas 2)
+## Nästa steg
 
-- [ ] Publisher-komponent
-- [ ] Git operations (commit + push)
-- [ ] Revalidate webhook
 - [ ] Cron scheduler
 - [ ] Error handling & logging
+- [ ] Inline-redigering före publicering
 
 ## Nästa steg (Fas 3)
 

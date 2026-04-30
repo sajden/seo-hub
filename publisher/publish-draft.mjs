@@ -70,7 +70,7 @@ function buildArticlePayload(draft, siteConfig, overrides = {}) {
     body: normalizedBody,
     tags,
     site: siteKey,
-    source: 'seo-hub'
+    source: 'article-generator'
   };
 }
 

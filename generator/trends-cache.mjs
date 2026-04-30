@@ -9,8 +9,9 @@ const __dirname = dirname(__filename);
 const CACHE_DIR = join(__dirname, '../.local');
 const CACHE_FILE = join(CACHE_DIR, 'trends-cache.json');
 
-// Cache TTL: 7 days
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Keep successful topic fetches longer than empty/failed fetches.
+const TOPIC_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const EMPTY_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Load trends cache from disk
@@ -58,7 +59,10 @@ export function isCacheValid(entry) {
   }
 
   const fetchedAt = new Date(entry.fetchedAt);
-  const expiresAt = new Date(fetchedAt.getTime() + CACHE_TTL_MS);
+  const ttlMs = Array.isArray(entry.topics) && entry.topics.length > 0
+    ? TOPIC_CACHE_TTL_MS
+    : EMPTY_CACHE_TTL_MS;
+  const expiresAt = new Date(fetchedAt.getTime() + ttlMs);
 
   return new Date() < expiresAt;
 }
@@ -111,16 +115,35 @@ export function selectKeywordsToFetch(allKeywords, cache, maxToFetch = 3) {
  * @param {Object} cache - Current cache
  * @returns {Array<Object>} All valid cached topics
  */
-export function getAllCachedTopics(cache) {
+export function getAllCachedTopics(cache, keywords = []) {
   const allTopics = [];
+  const activeKeywords = keywords.length > 0 ? new Set(keywords) : null;
 
   for (const [keyword, entry] of Object.entries(cache)) {
+    if (activeKeywords && !activeKeywords.has(keyword)) {
+      continue;
+    }
+
     if (isCacheValid(entry) && entry.topics) {
       allTopics.push(...entry.topics);
     }
   }
 
-  return allTopics;
+  const dedupedTopics = new Map();
+
+  for (const topic of allTopics) {
+    const key = (topic.topic || '').trim().toLowerCase();
+    if (!key) {
+      continue;
+    }
+
+    const existing = dedupedTopics.get(key);
+    if (!existing || (topic.score ?? 0) > (existing.score ?? 0)) {
+      dedupedTopics.set(key, topic);
+    }
+  }
+
+  return Array.from(dedupedTopics.values()).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 
 /**
@@ -132,12 +155,32 @@ export function getAllCachedTopics(cache) {
  */
 export function updateCache(cache, keyword, topics) {
   const now = new Date().toISOString();
+  const ttlMs = Array.isArray(topics) && topics.length > 0
+    ? TOPIC_CACHE_TTL_MS
+    : EMPTY_CACHE_TTL_MS;
 
   cache[keyword] = {
     topics,
     fetchedAt: now,
-    expiresAt: new Date(Date.now() + CACHE_TTL_MS).toISOString()
+    expiresAt: new Date(Date.now() + ttlMs).toISOString()
   };
 
   return cache;
+}
+
+export function pruneCache(cache, activeKeywords = []) {
+  if (!Array.isArray(activeKeywords) || activeKeywords.length === 0) {
+    return cache;
+  }
+
+  const activeSet = new Set(activeKeywords);
+  const nextCache = {};
+
+  for (const [keyword, entry] of Object.entries(cache)) {
+    if (activeSet.has(keyword)) {
+      nextCache[keyword] = entry;
+    }
+  }
+
+  return nextCache;
 }

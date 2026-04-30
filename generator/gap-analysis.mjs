@@ -11,8 +11,7 @@ export async function performGapAnalysis(existingArticles, siteConfig) {
 
   const gapTopics = await findContentGaps(
     existingArticles,
-    siteConfig.niche,
-    siteConfig.seedKeywords
+    siteConfig
   );
 
   if (gapTopics.length > 0) {
@@ -25,12 +24,17 @@ export async function performGapAnalysis(existingArticles, siteConfig) {
   }
 
   // Convert gap topics to same format as trending topics
-  return gapTopics.map(t => ({
-    topic: t.topic,
-    score: t.relevanceScore || 50, // Use relevance score as trend score
-    source: 'gap-analysis',
-    reasoning: t.reasoning
-  }));
+  return gapTopics
+    .filter(t => (t.closestSeedKeyword || '').trim())
+    .map(t => ({
+      topic: t.topic,
+      score: t.relevanceScore || 50, // Use relevance score as trend score
+      source: 'gap-analysis',
+      reasoning: t.reasoning,
+      preferredKeyword: t.closestSeedKeyword || '',
+      suggestedAngle: t.suggestedAngle || '',
+      topicType: t.topicType || 'narrow_practical'
+    }));
 }
 
 /**
@@ -84,6 +88,51 @@ export function selectTopTopics(topics, count = 2) {
   }
 
   return selected;
+}
+
+export function selectBalancedTopics(trendingTopics = [], gapTopics = [], count = 2) {
+  const combined = [...trendingTopics, ...gapTopics]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+  if (combined.length <= count) {
+    return combined;
+  }
+
+  const broad = combined.filter((topic) => topic.topicType === 'broad_strategic');
+  const narrow = combined.filter((topic) => topic.topicType !== 'broad_strategic');
+  const selected = [];
+
+  if (broad.length > 0) {
+    selected.push(broad[0]);
+  }
+
+  if (narrow.length > 0) {
+    const narrowCandidate = narrow.find(
+      (topic) => !selected.some((picked) => areSimilarTopics(picked.topic, topic.topic)),
+    );
+    if (narrowCandidate) {
+      selected.push(narrowCandidate);
+    }
+  }
+
+  if (selected.length >= count) {
+    return selected.slice(0, count);
+  }
+
+  for (const candidate of combined) {
+    if (selected.length >= count) {
+      break;
+    }
+
+    const alreadySelected = selected.some((picked) => picked.topic === candidate.topic);
+    const tooSimilar = selected.some((picked) => areSimilarTopics(picked.topic, candidate.topic));
+
+    if (!alreadySelected && !tooSimilar) {
+      selected.push(candidate);
+    }
+  }
+
+  return selected.slice(0, count);
 }
 
 /**

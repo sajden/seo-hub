@@ -41,20 +41,27 @@ export async function checkDuplicate(topic, existingArticles, existingDrafts) {
  * @param {string} niche - Site niche for relevance checking
  * @returns {Promise<Array<Object>>} Filtered topics (non-duplicates + relevant)
  */
-export async function filterDuplicates(topics, existingArticles, existingDrafts, niche) {
+export async function filterDuplicates(topics, existingArticles, existingDrafts, niche, seedKeywords = []) {
   const validTopics = [];
 
   for (const topic of topics) {
     // First check relevance
     console.log(`\nChecking relevance for "${topic.topic}"...`);
-    const relevanceCheck = await checkTopicRelevance(topic.topic, niche);
+    const relevanceCheck = await checkTopicRelevance(topic.topic, niche, seedKeywords);
+    const relevanceScore = relevanceCheck.relevanceScore ?? relevanceCheck.score ?? 0;
+    const preferredKeyword = (relevanceCheck.closestSeedKeyword || topic.preferredKeyword || '').trim();
 
-    if (!relevanceCheck.isRelevant || relevanceCheck.score < 70) {
-      console.log(`Skipping irrelevant topic: "${topic.topic}" - ${relevanceCheck.reasoning} (score: ${relevanceCheck.score})`);
+    if (!relevanceCheck.isRelevant || relevanceScore < 70) {
+      console.log(`Skipping irrelevant topic: "${topic.topic}" - ${relevanceCheck.reasoning} (score: ${relevanceScore})`);
       continue;
     }
 
-    console.log(`Topic is relevant (score: ${relevanceCheck.score})`);
+    if (!preferredKeyword) {
+      console.log(`Skipping weak-fit topic: "${topic.topic}" - no matching seed keyword selected`);
+      continue;
+    }
+
+    console.log(`Topic is relevant (score: ${relevanceScore})`);
 
     // Then check for duplicates
     const duplicateCheck = await checkDuplicate(topic, existingArticles, existingDrafts);
@@ -62,8 +69,14 @@ export async function filterDuplicates(topics, existingArticles, existingDrafts,
     if (!duplicateCheck.isDuplicate) {
       validTopics.push({
         ...topic,
+        preferredKeyword,
+        suggestedAngle: relevanceCheck.suggestedAngle || topic.suggestedAngle || '',
+        topicType: relevanceCheck.topicType || topic.topicType || 'narrow_practical',
         duplicateCheck,
-        relevanceCheck
+        relevanceCheck: {
+          ...relevanceCheck,
+          relevanceScore,
+        }
       });
     } else {
       console.log(`Skipping duplicate topic: "${topic.topic}" - ${duplicateCheck.reasoning}`);

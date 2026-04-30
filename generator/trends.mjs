@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
   loadCache,
+  pruneCache,
   saveCache,
   selectKeywordsToFetch,
   getAllCachedTopics,
@@ -27,7 +28,8 @@ export async function getTrendingTopics(keywords, region = 'SE') {
   }
 
   // Load cache
-  let cache = loadCache();
+  let cache = pruneCache(loadCache(), keywords);
+  saveCache(cache);
 
   // Select max 3 keywords to fetch (oldest/missing first)
   const keywordsToFetch = selectKeywordsToFetch(keywords, cache, 3);
@@ -53,7 +55,7 @@ export async function getTrendingTopics(keywords, region = 'SE') {
   }
 
   // Get all valid cached topics
-  const allTopics = getAllCachedTopics(cache);
+  const allTopics = getAllCachedTopics(cache, keywords);
   console.log(`Total topics available: ${allTopics.length} (from cache + fresh data)`);
 
   return allTopics;

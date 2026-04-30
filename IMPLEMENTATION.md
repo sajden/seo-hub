@@ -114,8 +114,8 @@ Triggas av "Godkänn" i UI:
 ### Cron setup (lokal maskin)
 ```bash
 # crontab -e
-0 9 * * 1 cd /home/sajden/github/seo-hub && node generator/cron.mjs --site autoweb
-0 10 * * 3 cd /home/sajden/github/seo-hub && node generator/cron.mjs --site othersite
+0 9 * * 1 cd /home/sajden/github/article-generator && node generator/cron.mjs --site autoweb
+0 10 * * 3 cd /home/sajden/github/article-generator && node generator/cron.mjs --site othersite
 ```
 
 ELLER en scheduler i Node.js som kör kontinuerligt:
@@ -149,7 +149,7 @@ node scheduler/run.mjs
 
 ### Core komponenter
 ```
-seo-hub/
+article-generator/
 ├── config.json                 # Multi-site config
 ├── .local/
 │   └── drafts/

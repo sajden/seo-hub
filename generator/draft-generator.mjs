@@ -2,6 +2,22 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { resolve, join } from 'path';
 import { generateArticle } from '../lib/codex.mjs';
 
+function normalizeArticleBody(body = '') {
+  let normalized = body.replace(/^#\s+.+\n+/, '');
+
+  normalized = normalized.replace(
+    '[relevant tjänstesida]',
+    '[AI-automatisering](/tjanster/ai-automatisering)',
+  );
+  normalized = normalized.replace(
+    '[relevant tjänstesida]',
+    '[Systemintegrationer](/tjanster/integrationer)',
+  );
+  normalized = normalized.replace(/\[kontakt\]/g, '[Kontakt](/kontakt)');
+
+  return normalized.trim();
+}
+
 /**
  * Generate a draft article
  * @param {Object} topic - Topic object with { topic, score }
@@ -17,6 +33,9 @@ export async function generateDraft(topic, siteConfig, reasoning = '') {
     topic: topic.topic,
     niche: siteConfig.niche,
     language: siteConfig.targetLanguage || 'sv',
+    seedKeywords: siteConfig.seedKeywords || [],
+    preferredKeyword: topic.preferredKeyword || '',
+    suggestedAngle: topic.suggestedAngle || topic.reasoning || '',
     length: siteConfig.articleLength || { min: 800, max: 1500 }
   });
 
@@ -26,10 +45,12 @@ export async function generateDraft(topic, siteConfig, reasoning = '') {
     slug: article.slug,
     title: article.title,
     metaDescription: article.metaDescription,
-    body: article.body,
+    body: normalizeArticleBody(article.body),
     tags: article.tags || [],
     trendScore: topic.score || 0,
     trendTopic: topic.topic,
+    preferredKeyword: topic.preferredKeyword || '',
+    suggestedAngle: topic.suggestedAngle || '',
     reasoning: reasoning || `Topic trending with score ${topic.score}`,
     generatedAt: new Date().toISOString(),
     status: 'pending'

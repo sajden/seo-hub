@@ -21,7 +21,7 @@
         "business central integration"
       ],
       "schedule": {
-        "day": "monday",
+        "day": "daily",
         "time": "09:00"
       },
       "articleLength": {

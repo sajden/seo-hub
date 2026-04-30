@@ -1,4 +1,4 @@
-# seo-hub — Spec
+# article-generator — Spec
 
 Automatisk SEO-artikelgenerering med mänskligt godkännande.
 
@@ -174,7 +174,7 @@ export async function GET(req: Request) {
 - **LLM:** Codex CLI (`codex` binary, samma som i ai-cam)
 - **UI:** Express + minimal HTML (ingen byggsteg, enkelt att köra)
 - **Publish:** `simple-git` npm-paket för git-operationer
-- **Hosting av seo-hub:** lokalt eller som Docker-container
+- **Hosting av article-generator:** lokalt eller som Docker-container
 
 ---
 

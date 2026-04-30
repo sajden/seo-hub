@@ -1,5 +1,5 @@
 {
-  "name": "seo-hub",
+  "name": "article-generator",
   "version": "1.0.0",
   "description": "Automatisk SEO-artikelgenerering med mänskligt godkännande",
   "type": "module",
