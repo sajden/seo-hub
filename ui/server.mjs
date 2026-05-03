@@ -327,9 +327,11 @@ router.get('/integrations/status', (req, res) => {
   res.json({
     integrations: [
       {
-        id: 'codex_gateway',
-        label: 'Codex Gateway',
-        configured: Boolean(process.env.SEO_HUB_CODEX_URL || process.env.CODEX_GATEWAY_URL),
+        id: 'llm',
+        label: 'LLM',
+        configured: Boolean(process.env.OPENAI_API_KEY || process.env.SEO_HUB_CODEX_URL || process.env.CODEX_GATEWAY_URL),
+        mode: process.env.OPENAI_API_KEY ? 'openai_api' : process.env.SEO_HUB_CODEX_URL || process.env.CODEX_GATEWAY_URL ? 'codex_gateway' : 'missing',
+        model: process.env.ARTICLE_GENERATOR_LLM_MODEL ?? process.env.OPENAI_MODEL ?? null,
         secretExposed: false,
       },
       {
