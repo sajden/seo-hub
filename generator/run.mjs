@@ -36,7 +36,7 @@ Reading existing drafts...`);
     console.log(`Found ${existingDrafts.length} existing drafts`);
 
     console.log(`
-Fetching demand topics from Keyword Planner and Operator Hub research...`);
+Fetching demand topics from Keyword Planner and Search Demand...`);
     const demandTopics = await getDemandTopics(siteConfig);
     console.log(`Found ${demandTopics.length} demand topics`);
     demandTopics.slice(0, 8).forEach((topic, index) => {

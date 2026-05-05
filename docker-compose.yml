@@ -13,7 +13,7 @@ services:
       TZ: Europe/Stockholm
       SEO_HUB_CODEX_URL: http://host.docker.internal:8090/v1/iterations/run
       SEO_HUB_CODEX_WORKSPACE_PATH: /workspace
-      OPERATOR_HUB_RESEARCH_DIR: /home/sajden/github/operator-hub/.local/research/search-demand
+      SEARCH_DEMAND_PROJECTS_DIR: /data/search-demand/projects
       GIT_AUTHOR_NAME: Sebastian Catwall
       GIT_AUTHOR_EMAIL: sebastian.catwall@gmail.com
       GIT_COMMITTER_NAME: Sebastian Catwall
@@ -24,7 +24,7 @@ services:
       - .:/app
       - article_generator_node_modules:/app/node_modules
       - ../sebcastwall:/home/sajden/github/sebcastwall
-      - ../operator-hub/.local/research/search-demand:/home/sajden/github/operator-hub/.local/research/search-demand:ro
+      - ../search-demand/.local/projects:/data/search-demand/projects:ro
       - /home/sajden/.ssh:/root/.ssh:ro
 
 volumes:
