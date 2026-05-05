@@ -3,14 +3,16 @@ import { findContentGaps } from '../lib/codex.mjs';
 /**
  * Perform gap analysis to find topics missing from content
  * @param {Array<Object>} existingArticles - Existing article metadata
+ * @param {Array<Object>} existingDrafts - Existing draft objects
  * @param {Object} siteConfig - Site configuration
  * @returns {Promise<Array<Object>>} Suggested gap topics
  */
-export async function performGapAnalysis(existingArticles, siteConfig) {
+export async function performGapAnalysis(existingArticles, existingDrafts, siteConfig) {
   console.log('Analyzing content gaps...');
 
   const gapTopics = await findContentGaps(
     existingArticles,
+    existingDrafts,
     siteConfig
   );
 

@@ -10,10 +10,22 @@ import { semanticCompare, checkTopicRelevance } from '../lib/codex.mjs';
 export async function checkDuplicate(topic, existingArticles, existingDrafts) {
   // Combine articles and drafts for comparison
   const allContent = [
-    ...existingArticles.map(a => ({ title: a.title, tags: a.tags })),
+    ...existingArticles.map(a => ({
+      title: a.title,
+      tags: a.tags,
+      description: a.description,
+      body: a.body,
+    })),
     ...existingDrafts
-      .filter(d => d.status === 'pending' || d.status === 'approved')
-      .map(d => ({ title: d.title, tags: d.tags }))
+      .map(d => ({
+        title: d.title,
+        tags: d.tags,
+        status: d.status,
+        trendTopic: d.trendTopic,
+        preferredKeyword: d.preferredKeyword,
+        suggestedAngle: d.suggestedAngle,
+        body: typeof d.body === 'string' ? d.body.slice(0, 500) : '',
+      }))
   ];
 
   if (allContent.length === 0) {

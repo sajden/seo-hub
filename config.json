@@ -6,6 +6,7 @@
       "targetRepo": "/home/sajden/github/sebcastwall",
       "contentPath": "content/articles",
       "targetSite": "seb-castwall-personal-site",
+      "keywordProjectSlug": "sebcastwall",
       "seedKeywords": [
         "chatgpt för företag",
         "ai för företag",
@@ -22,7 +23,7 @@
       ],
       "schedule": {
         "day": "daily",
-        "time": "09:00"
+        "time": "06:00"
       },
       "articleLength": {
         "min": 800,

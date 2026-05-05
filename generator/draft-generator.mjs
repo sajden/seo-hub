@@ -36,6 +36,8 @@ export async function generateDraft(topic, siteConfig, reasoning = '') {
     seedKeywords: siteConfig.seedKeywords || [],
     preferredKeyword: topic.preferredKeyword || '',
     suggestedAngle: topic.suggestedAngle || topic.reasoning || '',
+    demand: topic.demand || null,
+    demandSource: topic.source || '',
     length: siteConfig.articleLength || { min: 800, max: 1500 }
   });
 
@@ -51,6 +53,8 @@ export async function generateDraft(topic, siteConfig, reasoning = '') {
     trendTopic: topic.topic,
     preferredKeyword: topic.preferredKeyword || '',
     suggestedAngle: topic.suggestedAngle || '',
+    demandSource: topic.source || '',
+    demand: topic.demand || null,
     reasoning: reasoning || `Topic trending with score ${topic.score}`,
     generatedAt: new Date().toISOString(),
     status: 'pending'

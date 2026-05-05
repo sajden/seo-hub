@@ -2,8 +2,9 @@
 
 import { getSite, getAllSiteIds } from '../lib/config.mjs';
 import { readExistingArticles, readExistingDrafts } from '../lib/articles.mjs';
+import { getDemandTopics } from '../lib/demand-sources.mjs';
 import { getTrendingTopics, checkPytrends } from './trends.mjs';
-import { filterDuplicates } from './duplicate-check.mjs';
+import { checkDuplicate, filterDuplicates } from './duplicate-check.mjs';
 import { performGapAnalysis, selectBalancedTopics, selectTopTopics } from './gap-analysis.mjs';
 import { generateDraft, saveDraft } from './draft-generator.mjs';
 
@@ -35,6 +36,14 @@ Reading existing drafts...`);
     console.log(`Found ${existingDrafts.length} existing drafts`);
 
     console.log(`
+Fetching demand topics from Keyword Planner and Operator Hub research...`);
+    const demandTopics = await getDemandTopics(siteConfig);
+    console.log(`Found ${demandTopics.length} demand topics`);
+    demandTopics.slice(0, 8).forEach((topic, index) => {
+      console.log(`  ${index + 1}. ${topic.topic} (${topic.source}, score: ${topic.score})`);
+    });
+
+    console.log(`
 Fetching trending topics...`);
     const trendingTopics = await getTrendingTopics(
       siteConfig.seedKeywords,
@@ -51,6 +60,18 @@ Fetching trending topics...`);
     }
 
     console.log(`
+Filtering demand topics (relevance + duplicates)...`);
+    const demandTopicsForFiltering = demandTopics.slice(0, 35);
+    const uniqueDemandTopics = await filterDuplicates(
+      demandTopicsForFiltering,
+      existingArticles,
+      existingDrafts,
+      siteConfig.niche,
+      [...(siteConfig.seedKeywords || []), ...demandTopicsForFiltering.map((topic) => topic.preferredKeyword || topic.topic)],
+    );
+    console.log(`${uniqueDemandTopics.length} valid demand topics after filtering`);
+
+    console.log(`
 Filtering trending topics (relevance + duplicates)...`);
     const uniqueTrendingTopics = await filterDuplicates(
       trendingTopics,
@@ -63,36 +84,54 @@ Filtering trending topics (relevance + duplicates)...`);
 
     console.log(`
 Performing gap analysis...`);
-    const gapTopics = await performGapAnalysis(existingArticles, siteConfig);
+    const gapTopics = await performGapAnalysis(existingArticles, existingDrafts, {
+      ...siteConfig,
+      demandTopics,
+    });
     console.log(`${gapTopics.length} gap topics found`);
 
+    console.log(`
+Filtering gap topics (relevance + duplicates)...`);
+    const uniqueGapTopics = await filterDuplicates(
+      gapTopics,
+      existingArticles,
+      existingDrafts,
+      siteConfig.niche,
+      siteConfig.seedKeywords || [],
+    );
+    console.log(`${uniqueGapTopics.length} valid gap topics after filtering`);
+
     let selectedTopics = [];
-    const balancedTopics = selectBalancedTopics(uniqueTrendingTopics, gapTopics, 2);
+    const balancedTopics = selectBalancedTopics(uniqueDemandTopics, [...uniqueTrendingTopics, ...uniqueGapTopics], 2);
 
     if (balancedTopics.length >= 2) {
       console.log(`
-Selecting 1 broad strategic + 1 narrow practical topic when possible`);
+Selecting balanced topics from demand, trends and gaps`);
       selectedTopics = balancedTopics;
+    } else if (uniqueDemandTopics.length >= 2) {
+      console.log(`
+Selecting 2 demand-backed topics`);
+      selectedTopics = selectTopTopics(uniqueDemandTopics, 2);
     } else if (uniqueTrendingTopics.length >= 2) {
       console.log(`
 Selecting 2 trending topics`);
       selectedTopics = selectTopTopics(uniqueTrendingTopics, 2);
-    } else if (gapTopics.length >= 2) {
+    } else if (uniqueGapTopics.length >= 2) {
       console.log(`
 Selecting 2 gap topics`);
-      selectedTopics = selectTopTopics(gapTopics, 2);
-    } else if (uniqueTrendingTopics.length === 1 && gapTopics.length === 1) {
+      selectedTopics = selectTopTopics(uniqueGapTopics, 2);
+    } else if (uniqueTrendingTopics.length === 1 && uniqueGapTopics.length === 1) {
       console.log(`
 Using 1 trending + 1 gap topic`);
-      selectedTopics = [uniqueTrendingTopics[0], gapTopics[0]];
+      selectedTopics = [uniqueTrendingTopics[0], uniqueGapTopics[0]];
     } else if (uniqueTrendingTopics.length === 1) {
       console.log(`
 Using 1 trending topic`);
       selectedTopics = [uniqueTrendingTopics[0]];
-    } else if (gapTopics.length === 1) {
+    } else if (uniqueGapTopics.length === 1) {
       console.log(`
 Using 1 gap topic`);
-      selectedTopics = [gapTopics[0]];
+      selectedTopics = [uniqueGapTopics[0]];
     }
 
     if (selectedTopics.length === 0) {
@@ -118,6 +157,16 @@ Selected ${selectedTopics.length} topics for generation:`);
           siteConfig,
           topic.reasoning || `Trending topic with score ${topic.score}`,
         );
+
+        const duplicateDraftCheck = await checkDuplicate(
+          { topic: `${draft.title}. ${draft.trendTopic}. ${draft.suggestedAngle}` },
+          existingArticles,
+          [...existingDrafts, ...drafts.map(({ draft: existingDraft }) => existingDraft)],
+        );
+        if (duplicateDraftCheck.isDuplicate) {
+          console.log(`Skipping generated duplicate draft: "${draft.title}" - ${duplicateDraftCheck.reasoning}`);
+          continue;
+        }
 
         const filepath = saveDraft(draft);
         drafts.push({ draft, filepath });
