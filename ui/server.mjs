@@ -131,6 +131,26 @@ function updateDraftStatus(filepath, status) {
   }
 }
 
+function readSearchDemandProject(projectSlug) {
+  const candidates = [
+    process.env.SEARCH_DEMAND_PROJECT_FILE,
+    process.env.SEARCH_DEMAND_PROJECTS_DIR ? join(process.env.SEARCH_DEMAND_PROJECTS_DIR, `${projectSlug}.json`) : '',
+    `/data/search-demand/projects/${projectSlug}.json`,
+    `/home/sajden/github/search-demand/.local/projects/${projectSlug}.json`,
+  ].filter(Boolean);
+
+  for (const filepath of candidates) {
+    try {
+      if (!existsSync(filepath)) continue;
+      return JSON.parse(readFileSync(filepath, 'utf-8'));
+    } catch (err) {
+      console.error(`Failed to read Search Demand project ${filepath}:`, err.message);
+    }
+  }
+
+  return null;
+}
+
 function escapeHtml(value = '') {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -342,6 +362,15 @@ router.get('/integrations/status', (req, res) => {
       },
     ],
   });
+});
+
+router.get('/search-demand/:projectSlug', (req, res) => {
+  const project = readSearchDemandProject(req.params.projectSlug);
+  if (!project) {
+    res.status(404).json({ error: 'Search Demand project not found' });
+    return;
+  }
+  res.json({ project });
 });
 
 router.get('/drafts', (req, res) => {
