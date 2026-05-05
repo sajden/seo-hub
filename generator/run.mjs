@@ -7,6 +7,7 @@ import { getTrendingTopics, checkPytrends } from './trends.mjs';
 import { checkDuplicate, filterDuplicates } from './duplicate-check.mjs';
 import { performGapAnalysis, selectBalancedTopics, selectTopTopics } from './gap-analysis.mjs';
 import { generateDraft, saveDraft } from './draft-generator.mjs';
+import { createRunLedger } from '../lib/run-ledger.mjs';
 
 /**
  * Main generator workflow
@@ -18,8 +19,14 @@ export async function generateForSite(siteId) {
 === Generating article for site: ${siteId} ===
 `);
 
+  let ledger = null;
   try {
     const siteConfig = getSite(siteId);
+    ledger = createRunLedger(siteId, {
+      reason: 'generateForSite',
+      targetSite: siteConfig.targetSite,
+      niche: siteConfig.niche
+    });
     console.log(`Site: ${siteConfig.id} - ${siteConfig.niche}`);
 
     console.log(`
@@ -68,6 +75,7 @@ Filtering demand topics (relevance + duplicates)...`);
       existingDrafts,
       siteConfig.niche,
       [...(siteConfig.seedKeywords || []), ...demandTopicsForFiltering.map((topic) => topic.preferredKeyword || topic.topic)],
+      { sourceStage: 'demand', onDecision: (decision) => ledger.recordDecision(decision) },
     );
     console.log(`${uniqueDemandTopics.length} valid demand topics after filtering`);
 
@@ -79,6 +87,7 @@ Filtering trending topics (relevance + duplicates)...`);
       existingDrafts,
       siteConfig.niche,
       siteConfig.seedKeywords || [],
+      { sourceStage: 'trending', onDecision: (decision) => ledger.recordDecision(decision) },
     );
     console.log(`${uniqueTrendingTopics.length} valid trending topics after filtering`);
 
@@ -98,6 +107,7 @@ Filtering gap topics (relevance + duplicates)...`);
       existingDrafts,
       siteConfig.niche,
       siteConfig.seedKeywords || [],
+      { sourceStage: 'gap', onDecision: (decision) => ledger.recordDecision(decision) },
     );
     console.log(`${uniqueGapTopics.length} valid gap topics after filtering`);
 
@@ -165,15 +175,26 @@ Selected ${selectedTopics.length} topics for generation:`);
         );
         if (duplicateDraftCheck.isDuplicate) {
           console.log(`Skipping generated duplicate draft: "${draft.title}" - ${duplicateDraftCheck.reasoning}`);
+          ledger.recordDecision({
+            sourceStage: 'generated-draft',
+            decision: 'duplicate',
+            topic: draft.title,
+            source: topic.source || '',
+            score: topic.score ?? null,
+            reason: duplicateDraftCheck.reasoning || 'Generated draft duplicated existing content',
+            duplicateCheck: duplicateDraftCheck
+          });
           continue;
         }
 
         const filepath = saveDraft(draft);
         drafts.push({ draft, filepath });
+        ledger.recordGenerated(draft, filepath);
 
         console.log(`✓ Draft saved: ${draft.title}`);
       } catch (err) {
         console.error(`✗ Failed to generate draft for "${topic.topic}":`, err.message);
+        ledger.recordFailure(topic, err);
       }
     }
 
@@ -190,10 +211,12 @@ Selected ${selectedTopics.length} topics for generation:`);
 `);
     });
 
+    ledger.finish('ok');
     return drafts.map(({ draft }) => draft);
   } catch (err) {
     console.error(`
 Error generating for site ${siteId}:`, err.message);
+    ledger?.finish('error', err);
     throw err;
   }
 }

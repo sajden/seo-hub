@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import { marked } from 'marked';
 import { publishDraft, updatePublishedDraft, unpublishDraft, deleteDraft } from '../publisher/publish-draft.mjs';
 import { startScheduler, getSchedulerStatus, triggerGeneration } from '../lib/scheduler.mjs';
+import { readRuns } from '../lib/run-ledger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -371,6 +372,11 @@ router.get('/search-demand/:projectSlug', (req, res) => {
     return;
   }
   res.json({ project });
+});
+
+router.get('/runs/:siteId', (req, res) => {
+  const limit = Number(req.query.limit ?? 10);
+  res.json({ runs: readRuns(req.params.siteId, Number.isFinite(limit) ? limit : 10) });
 });
 
 router.get('/drafts', (req, res) => {

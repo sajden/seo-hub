@@ -53,8 +53,10 @@ export async function checkDuplicate(topic, existingArticles, existingDrafts) {
  * @param {string} niche - Site niche for relevance checking
  * @returns {Promise<Array<Object>>} Filtered topics (non-duplicates + relevant)
  */
-export async function filterDuplicates(topics, existingArticles, existingDrafts, niche, seedKeywords = []) {
+export async function filterDuplicates(topics, existingArticles, existingDrafts, niche, seedKeywords = [], options = {}) {
   const validTopics = [];
+  const sourceStage = options.sourceStage || 'unknown';
+  const onDecision = typeof options.onDecision === 'function' ? options.onDecision : null;
 
   for (const topic of topics) {
     // First check relevance
@@ -65,11 +67,31 @@ export async function filterDuplicates(topics, existingArticles, existingDrafts,
 
     if (!relevanceCheck.isRelevant || relevanceScore < 70) {
       console.log(`Skipping irrelevant topic: "${topic.topic}" - ${relevanceCheck.reasoning} (score: ${relevanceScore})`);
+      onDecision?.({
+        sourceStage,
+        decision: 'rejected',
+        topic: topic.topic,
+        source: topic.source || '',
+        score: topic.score ?? null,
+        reason: relevanceCheck.reasoning || 'Not relevant enough',
+        relevanceScore,
+        relevanceCheck
+      });
       continue;
     }
 
     if (!preferredKeyword) {
       console.log(`Skipping weak-fit topic: "${topic.topic}" - no matching seed keyword selected`);
+      onDecision?.({
+        sourceStage,
+        decision: 'rejected',
+        topic: topic.topic,
+        source: topic.source || '',
+        score: topic.score ?? null,
+        reason: 'No matching seed keyword selected',
+        relevanceScore,
+        relevanceCheck
+      });
       continue;
     }
 
@@ -79,7 +101,7 @@ export async function filterDuplicates(topics, existingArticles, existingDrafts,
     const duplicateCheck = await checkDuplicate(topic, existingArticles, existingDrafts);
 
     if (!duplicateCheck.isDuplicate) {
-      validTopics.push({
+      const validTopic = {
         ...topic,
         preferredKeyword,
         suggestedAngle: relevanceCheck.suggestedAngle || topic.suggestedAngle || '',
@@ -89,9 +111,36 @@ export async function filterDuplicates(topics, existingArticles, existingDrafts,
           ...relevanceCheck,
           relevanceScore,
         }
+      };
+      validTopics.push(validTopic);
+      onDecision?.({
+        sourceStage,
+        decision: 'selected',
+        topic: topic.topic,
+        source: topic.source || '',
+        score: topic.score ?? null,
+        reason: relevanceCheck.reasoning || 'Relevant and unique',
+        relevanceScore,
+        preferredKeyword,
+        suggestedAngle: validTopic.suggestedAngle,
+        topicType: validTopic.topicType,
+        relevanceCheck,
+        duplicateCheck
       });
     } else {
       console.log(`Skipping duplicate topic: "${topic.topic}" - ${duplicateCheck.reasoning}`);
+      onDecision?.({
+        sourceStage,
+        decision: 'duplicate',
+        topic: topic.topic,
+        source: topic.source || '',
+        score: topic.score ?? null,
+        reason: duplicateCheck.reasoning || 'Duplicate topic',
+        relevanceScore,
+        preferredKeyword,
+        relevanceCheck,
+        duplicateCheck
+      });
     }
   }
 
