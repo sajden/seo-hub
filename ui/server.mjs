@@ -40,6 +40,38 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/newsletter-agent', async (req, res) => {
+  const upstreamBase = (process.env.NEWSLETTER_AGENT_UPSTREAM ?? 'http://127.0.0.1:3461').replace(/\/+$/, '');
+  const upstreamUrl = new URL(`${upstreamBase}${req.url}`);
+
+  try {
+    const body = ['GET', 'HEAD'].includes(req.method)
+      ? undefined
+      : await new Promise((resolvePromise, rejectPromise) => {
+          const chunks = [];
+          req.on('data', (chunk) => chunks.push(chunk));
+          req.on('end', () => resolvePromise(Buffer.concat(chunks)));
+          req.on('error', rejectPromise);
+        });
+    const upstream = await fetch(upstreamUrl, {
+      method: req.method,
+      headers: {
+        'content-type': req.headers['content-type'] ?? 'application/json',
+        'authorization': req.headers.authorization ?? ''
+      },
+      body
+    });
+
+    res.status(upstream.status);
+    const contentType = upstream.headers.get('content-type');
+    if (contentType) res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (err) {
+    res.status(502).json({ error: 'newsletter_agent_unreachable', message: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 router.use('/ui/public', express.static(join(__dirname, 'public')));
@@ -124,7 +156,10 @@ function updateDraftFile(filepath, updates) {
 
 function updateDraftStatus(filepath, status) {
   try {
-    updateDraftFile(filepath, { status });
+    updateDraftFile(filepath, {
+      status,
+      ...(status === 'rejected' ? { rejectedAt: new Date().toISOString() } : {}),
+    });
     return true;
   } catch (err) {
     console.error('Failed to update draft status:', err.message);

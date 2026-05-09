@@ -3,6 +3,7 @@
     {
       "id": "autoweb",
       "niche": "AI-automation, systemintegrationer, utveckling och IT-säkerhet för svenska SMB och startups. Hjälper företag minska manuellt arbete, koppla ihop system och bygga digitala lösningar med praktisk automation, AI-stöd och hands-on utveckling.",
+      "capabilitiesContext": "SebCastwall hjälper svenska små och medelstora företag med praktisk rådgivning, diagnos och hands-on implementation. Standarderbjudandet är inte automatiskt en ny hemsida; välj det som löser kundens faktiska friktion. Relevanta erbjudanden: Microsoft 365, Outlook, Teams, SharePoint, OneDrive, domän/DNS och mailkonfiguration; AI-assistenter för FAQ, lead intake, offertförberedelse, intern admin, e-posttriage och uppföljningsutkast; automation av återkommande arbetsflöden, dokumentflöden, rapporter och statusuppföljning; integrationer mellan formulär, CRM, Fortnox, booking, kalkylblad, SharePoint/OneDrive och dashboards; booking- och kundintag med FAQ-flöden och routing; SEO och lokalt innehåll som matchar riktiga kundfrågor; social/content automation från menyer, erbjudanden, nyheter och events; enkla appar, portaler och dashboards; praktisk lokal IT-hjälp som datorsetup, felsökning, konto-/programinstallation, skrivare och grundläggande säkerhet. Artiklar ska rama in hjälpen som konkret förbättring, felsökning eller nästa bästa steg, utan att överdriva ROI eller kritisera kunden.",
       "targetRepo": "/home/sajden/github/sebcastwall",
       "contentPath": "content/articles",
       "targetSite": "seb-castwall-personal-site",
@@ -28,6 +29,19 @@
       "articleLength": {
         "min": 800,
         "max": 1500
+      },
+      "generation": {
+        "targetDraftCount": 2,
+        "maxAttempts": 10,
+        "topicFreshness": {
+          "lookbackDays": 30,
+          "maxSimilarRecent": 2,
+          "minNoveltyScore": 70
+        },
+        "mix": {
+          "commercial": 1,
+          "support": 1
+        }
       },
       "targetLanguage": "sv",
       "publishUrl": "https://sebcastwall.se/api/articles/publish",

@@ -18,6 +18,13 @@ function normalizeArticleBody(body = '') {
   return normalized.trim();
 }
 
+function buildSiteContext(siteConfig) {
+  return [
+    siteConfig.niche,
+    siteConfig.capabilitiesContext ? `SebCastwall capability map: ${siteConfig.capabilitiesContext}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
 /**
  * Generate a draft article
  * @param {Object} topic - Topic object with { topic, score }
@@ -31,13 +38,14 @@ export async function generateDraft(topic, siteConfig, reasoning = '') {
   // Generate article using Codex
   const article = await generateArticle({
     topic: topic.topic,
-    niche: siteConfig.niche,
+    niche: buildSiteContext(siteConfig),
     language: siteConfig.targetLanguage || 'sv',
     seedKeywords: siteConfig.seedKeywords || [],
     preferredKeyword: topic.preferredKeyword || '',
     suggestedAngle: topic.suggestedAngle || topic.reasoning || '',
     demand: topic.demand || null,
     demandSource: topic.source || '',
+    contentIntent: topic.contentIntent || topic.topicType || '',
     length: siteConfig.articleLength || { min: 800, max: 1500 }
   });
 
@@ -53,6 +61,7 @@ export async function generateDraft(topic, siteConfig, reasoning = '') {
     trendTopic: topic.topic,
     preferredKeyword: topic.preferredKeyword || '',
     suggestedAngle: topic.suggestedAngle || '',
+    contentIntent: topic.contentIntent || topic.topicType || '',
     demandSource: topic.source || '',
     demand: topic.demand || null,
     reasoning: reasoning || `Topic trending with score ${topic.score}`,

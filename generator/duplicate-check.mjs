@@ -8,9 +8,15 @@ import { semanticCompare, checkTopicRelevance } from '../lib/codex.mjs';
  * @returns {Promise<Object>} { isDuplicate, reasoning, similarity }
  */
 export async function checkDuplicate(topic, existingArticles, existingDrafts) {
+  const deterministicHit = findDeterministicDuplicate(topic, existingArticles, existingDrafts);
+  if (deterministicHit) {
+    return deterministicHit;
+  }
+
   // Combine articles and drafts for comparison
   const allContent = [
     ...existingArticles.map(a => ({
+      slug: a.slug,
       title: a.title,
       tags: a.tags,
       description: a.description,
@@ -43,6 +49,65 @@ export async function checkDuplicate(topic, existingArticles, existingDrafts) {
   console.log(`Duplicate check for "${topic.topic}": ${result.isDuplicate ? 'DUPLICATE' : 'UNIQUE'} (${result.similarity}% similar)`);
 
   return result;
+}
+
+function normalizeKeyword(value = '') {
+  return String(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9åäö\s-]+/gi, ' ')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findDeterministicDuplicate(topic, existingArticles, existingDrafts) {
+  const topicText = normalizeKeyword([
+    topic.topic,
+    topic.preferredKeyword,
+    topic.slug,
+    topic.suggestedAngle
+  ].filter(Boolean).join(' '));
+
+  if (!topicText) return null;
+
+  const topicTerms = new Set(topicText.split(' ').filter((term) => term.length > 2));
+  const content = [
+    ...existingArticles.map((item) => ({ ...item, sourceType: 'published article' })),
+    ...existingDrafts.map((item) => ({ ...item, sourceType: 'draft' }))
+  ];
+
+  for (const item of content) {
+    const haystack = normalizeKeyword([
+      item.slug,
+      item.filename,
+      item.title,
+      Array.isArray(item.tags) ? item.tags.join(' ') : '',
+      item.description,
+      item.trendTopic,
+      item.preferredKeyword,
+      item.suggestedAngle,
+      item.body
+    ].filter(Boolean).join(' '));
+
+    if (!haystack) continue;
+
+    const exactPhrase = topicText.length > 4 && haystack.includes(topicText);
+    const slugPhrase = item.slug && topicText.includes(normalizeKeyword(item.slug));
+    const overlap = [...topicTerms].filter((term) => haystack.split(' ').includes(term)).length;
+    const similarity = Math.round((overlap / Math.max(1, topicTerms.size)) * 100);
+
+    if (exactPhrase || slugPhrase || similarity >= 80) {
+      return {
+        isDuplicate: true,
+        reasoning: `Deterministic duplicate match against existing ${item.sourceType}: "${item.title || item.slug}".`,
+        similarity: Math.max(similarity, exactPhrase || slugPhrase ? 95 : similarity)
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
